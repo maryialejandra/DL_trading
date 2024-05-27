@@ -4,6 +4,7 @@ import os
 import numpy as np
 import pickle
 from datetime import datetime
+from Graficas import plot_actions
 
 from agent import MultiStockEnv, DQNAgent, play_one_episode
 from utils import get_data, make_dir, get_scaler
@@ -42,6 +43,7 @@ if __name__ == '__main__':
 
   # store the final value of the portfolio (end of episode)
   portfolio_value = []
+  actions_record_all = []
 
   if args.mode == 'test':
     # then load the previous scaler
@@ -61,10 +63,11 @@ if __name__ == '__main__':
   # play the game num_episodes times
   for e in range(num_episodes):
     t0 = datetime.now()
-    val = play_one_episode(agent, env, args.mode,scaler,batch_size)
+    val, actions_record = play_one_episode(agent, env, args.mode,scaler,batch_size)
     dt = datetime.now() - t0
     print(f"episode: {e + 1}/{num_episodes}, episode end value: {val:.2f}, duration: {dt}")
     portfolio_value.append(val) # append episode end portfolio value
+    actions_record_all.append(actions_record)
 
   # save the weights when we are done
   if args.mode == 'train':
@@ -78,3 +81,7 @@ if __name__ == '__main__':
 
   # save portfolio value for each episode
   np.save(f'{rewards_folder}/{args.mode}.npy', portfolio_value)
+  with open(f'{rewards_folder}/actions_record_{args.mode}.pkl', 'wb') as f:
+    pickle.dump(actions_record_all, f)
+
+  plot_actions(actions_record_all, len(actions_record_all))
