@@ -288,8 +288,11 @@ def play_one_episode(agent, env, is_train,scaler,batch_size):
   state = scaler.transform([state])
   done = False
 
+  actions_record = []
+
   while not done:
     action = agent.act(state)
+    actions_record.append(env.action_list[action])
     next_state, reward, done, info = env.step(action)
     next_state = scaler.transform([next_state])
     if is_train == 'train':
@@ -297,4 +300,4 @@ def play_one_episode(agent, env, is_train,scaler,batch_size):
       agent.replay(batch_size)
     state = next_state
 
-  return info['cur_val']
+  return info['cur_val'], actions_record 
