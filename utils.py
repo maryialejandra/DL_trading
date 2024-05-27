@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 
+from sklearn.preprocessing import StandardScaler
 
 
 def get_data(path_data):
@@ -37,3 +38,20 @@ class ReplayBuffer:
 def make_dir(directory):
   if not os.path.exists(directory):
     os.makedirs(directory)
+
+
+def get_scaler(env):
+  # return scikit-learn scaler object to scale the states
+  # Note: you could also populate the replay buffer here
+
+  states = []
+  for _ in range(env.n_step):
+    action = np.random.choice(env.action_space)
+    state, reward, done, info = env.step(action)
+    states.append(state)
+    if done:
+      break
+
+  scaler = StandardScaler()
+  scaler.fit(states)
+  return scaler
