@@ -15,7 +15,7 @@ if __name__ == '__main__':
   # config
   models_folder = 'rl_trader_models'
   rewards_folder = 'rl_trader_rewards'
-  num_episodes = 2000
+  num_episodes = 1000
   batch_size = 32
   initial_investment = 20000
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     print(len(actions_record))
     color_dict = {
       0:'r',
-      1:'b',
+      1:'w',
       2: 'g'
      }
     print(val)

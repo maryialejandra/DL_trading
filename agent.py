@@ -63,12 +63,20 @@ class MultiStockEnv:
 
         for i, a in enumerate(action_vec):
             if a == 0:  # Sell
-                self.cash_in_hand += self.stock_price[i] * self.stock_owned[i]
-                self.stock_owned[i] = 0
+                ##Sell all the stocks
+                if self.stock_owned[i] > 0:
+                  self.cash_in_hand += self.stock_price[i] * self.stock_owned[i]
+                  self.stock_owned[i] = 0
+                else:
+                    action_success = False
             elif a == 2:  # Buy
-                max_buy = self.cash_in_hand * 0.05
+                #Max by is the 30% of the total portfolio
+                max_buy = self.cash_in_hand * 0.3
                 buy_amount = max_buy // self.stock_price[i]
-                if buy_amount > 0:
+                ##Cannot buy if already owns a stock
+                if self.stock_owned[i] > 0:
+                    action_success = False
+                elif buy_amount > 0:
                     self.stock_owned[i] += buy_amount
                     self.cash_in_hand -= buy_amount * self.stock_price[i]
                 else:
@@ -181,32 +189,36 @@ def play_one_episode(agent, env, is_train, scaler, batch_size):
 
 def calculate_reward(agent, next_state, action, info):
     if action == 2:  # Buy
-        if agent.current_position == 0 and agent.current_cash > 0:
-            purchase_amount = min(agent.current_cash * 0.05, agent.current_cash)
+        if not info['action_success']:
+            reward = -0.01 
+        elif agent.current_cash > 0:
+            purchase_amount = min(agent.current_cash * 0., agent.current_cash)
             agent.last_buy_price = info['cur_val']
             agent.current_cash -= purchase_amount
             agent.current_portfolio_value += purchase_amount
             agent.current_position = 1
-        reward = (info['cur_val'] - agent.last_buy_price) / agent.last_buy_price
-
-        if not info['action_success']:
-            reward -= 0.01  # Penalty for failed buy action
+            reward = (info['cur_val'] - agent.last_buy_price) / agent.last_buy_price
+        
+        #if not info['action_success']:
+        #    reward -= 0.01  # Penalty for failed buy action
 
     elif action == 0:  # Sell
-        if agent.current_position == 1:
+        if not info['action_success']:
+            reward = -0.02 
+        else:
             sell_value = agent.current_portfolio_value
             agent.current_cash += sell_value
             agent.current_portfolio_value = 0
             reward = (info['cur_val'] - agent.last_buy_price) / agent.last_buy_price
             agent.current_position = 0
-        else:
-            reward = -0.02  # Penalty for trying to sell without holding
+        #else: 
+        #   reward = -0.02  # Penalty for trying to sell without holding
 
     elif action == 1:  # Hold
         if agent.current_position == 1:
             reward = (info['cur_val'] - agent.last_buy_price) / agent.last_buy_price
         else:
-            reward = 0
+            reward = 0  
 
     reward = np.clip(reward, -1, 1)
     return reward
