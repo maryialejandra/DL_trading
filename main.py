@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 from datetime import datetime
 from Graficas import plot_actions
+import matplotlib.pyplot as plt
 
 from agent import MultiStockEnv, DQNAgent, play_one_episode
 from utils import get_data, make_dir, get_scaler
@@ -27,7 +28,10 @@ if __name__ == '__main__':
   make_dir(models_folder)
   make_dir(rewards_folder)
 
-  data = get_data('../aapl_msi_sbux.csv')
+  data = get_data('EURUSD.csv')
+  #print(data.shape)
+  if len(data.shape) == 1:
+    data = data.reshape((-1,1))
   n_timesteps, n_stocks = data.shape
 
   n_train = n_timesteps // 2
@@ -60,6 +64,25 @@ if __name__ == '__main__':
     # load trained weights
     agent.load(f'{models_folder}/dqn.ckpt')
 
+  
+    val, actions_record = play_one_episode(agent, env, args.mode,scaler,batch_size)
+    print(len(test_data))
+    print(len(actions_record))
+    color_dict = {
+      0:'r',
+      1:'b',
+      2: 'g'
+     }
+    print(val)
+    for i in range(len(test_data)):
+      if i == 0:
+        plt.plot(i,test_data[i],color=color_dict[1],marker='o')
+      else:
+        plt.plot(i,test_data[i],color=color_dict[actions_record[i-1]],marker='o')
+    plt.show()
+      
+    
+  
   # play the game num_episodes times
   for e in range(num_episodes):
     t0 = datetime.now()
@@ -68,7 +91,7 @@ if __name__ == '__main__':
     print(f"episode: {e + 1}/{num_episodes}, episode end value: {val:.2f}, duration: {dt}")
     portfolio_value.append(val) # append episode end portfolio value
     actions_record_all.append(actions_record)
-
+  
   # save the weights when we are done
   if args.mode == 'train':
     # save the DQN

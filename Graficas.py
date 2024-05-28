@@ -12,8 +12,7 @@ def plot_actions(actions_record_all, num_episodes):
     
     for episode, actions_record in enumerate(actions_record_all):
         for action in actions_record:
-            for stock in range(3):
-                actions_per_stock[stock, episode, action[stock]] += 1
+                actions_per_stock[0, episode, action] += 1
 
     actions = ['Sell', 'Hold', 'Buy']
     for stock in range(3):
@@ -28,4 +27,6 @@ def plot_actions(actions_record_all, num_episodes):
 
 if __name__ == '__main__':
     mode = 'train'  # or 'test' based on what you ran
-    actions_record_all = load_actions_record(f'rewards_folder/actions_record_{mode}.pkl')
+    actions_record_all = load_actions_record(f'rl_trader_rewards/actions_record_{mode}.pkl')
+    print(actions_record_all)
+    plot_actions(actions_record_all,2000)
