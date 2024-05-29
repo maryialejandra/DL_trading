@@ -2,6 +2,10 @@ import numpy as np
 import itertools
 from utils import ReplayBuffer
 
+import numpy as np
+import torch
+import torch.nn as nn
+
 class MultiStockEnv:
     def __init__(self, data, initial_investment=20000):
         self.stock_price_history = data
@@ -14,8 +18,8 @@ class MultiStockEnv:
         self.cash_in_hand = None
 
         self.action_space = np.arange(3**self.n_stock)
+        ##Lista de acciones por stock [sell,hold,buy]
         self.action_list = list(map(list, itertools.product([0, 1, 2], repeat=self.n_stock)))
-
         self.state_dim = self.n_stock * 2 + 1
 
         self.reset()
@@ -40,7 +44,7 @@ class MultiStockEnv:
         reward = cur_val - prev_val
 
         if not action_success:
-            reward -= 0.01  # Penalty for unsuccessful buy action
+            reward -= 0.01  # agrega penalidad por haber itnentado comprar sin fondos.
 
         done = self.cur_step == self.n_step - 1
         info = {'cur_val': cur_val, 'action_success': action_success}
@@ -64,22 +68,20 @@ class MultiStockEnv:
         for i, a in enumerate(action_vec):
             if a == 0:  # Sell
                 self.cash_in_hand += self.stock_price[i] * self.stock_owned[i]
-                self.stock_owned[i] = 0
+                self.stock_owned[i] = 0 #Siempre vende todas las acciones que posee
             elif a == 2:  # Buy
-                max_buy = self.cash_in_hand * 0.05
+                max_buy = self.cash_in_hand * 0.05 #Solo compra el 5% del dinero qeu posee
                 buy_amount = max_buy // self.stock_price[i]
                 if buy_amount > 0:
                     self.stock_owned[i] += buy_amount
                     self.cash_in_hand -= buy_amount * self.stock_price[i]
                 else:
-                    action_success = False  # Failed to buy due to insufficient funds
+                    action_success = False  # No compró por fondos insuficientes.
 
         #print(f"Step: {self.cur_step}, Action: {action_vec}, Stocks Owned: {self.stock_owned}, Cash: {self.cash_in_hand}, Portfolio Value: {self._get_val()}")
         return action_success
 
-import numpy as np
-import torch
-import torch.nn as nn
+
 
 class DQNAgent:
     def __init__(self, state_size, action_size, initial_capital=100000):
@@ -119,10 +121,10 @@ class DQNAgent:
 
     def act(self, state):
         if np.random.rand() <= self.epsilon:
-            return np.random.choice(self.action_size)
+            return np.random.choice(self.action_size),np.zeros(self.action_size)
         state = torch.FloatTensor(state)
         act_values = self.model(state)
-        return np.argmax(act_values.detach().numpy())
+        return np.argmax(act_values.detach().numpy()), act_values.detach().numpy()
 
     def replay(self, batch_size=32):
         if self.memory.size < batch_size:
@@ -159,11 +161,15 @@ def play_one_episode(agent, env, is_train, scaler, batch_size):
     done = False
 
     actions_record = []
+    values_record = []
+    q_values = []
+    states = []
     total_reward = 0
 
     while not done:
-        action = agent.act(state)
+        action, q_value = agent.act(state)
         actions_record.append(action)
+        states.append(state)
         next_state, reward, done, info = env.step(action)
         next_state = scaler.transform([next_state])
 
@@ -174,10 +180,12 @@ def play_one_episode(agent, env, is_train, scaler, batch_size):
             agent.update_replay_memory(state, action, reward, next_state, done)
             agent.replay(batch_size)
             agent.update_target_model()
-
+        state = next_state
+        values_record.append(info['cur_val']) 
+        q_values.append(q_value)
         state = next_state
 
-    return info['cur_val'], actions_record
+    return values_record, actions_record, q_values,states
 
 def calculate_reward(agent, next_state, action, info):
     if action == 2:  # Buy
@@ -190,7 +198,7 @@ def calculate_reward(agent, next_state, action, info):
         reward = (info['cur_val'] - agent.last_buy_price) / agent.last_buy_price
 
         if not info['action_success']:
-            reward -= 0.01  # Penalty for failed buy action
+            reward -= 0.01  #Penalidad por intentar vender sin dinero
 
     elif action == 0:  # Sell
         if agent.current_position == 1:
@@ -200,7 +208,7 @@ def calculate_reward(agent, next_state, action, info):
             reward = (info['cur_val'] - agent.last_buy_price) / agent.last_buy_price
             agent.current_position = 0
         else:
-            reward = -0.02  # Penalty for trying to sell without holding
+            reward = -0.02  # Pennalidad por vender sin tener acciones
 
     elif action == 1:  # Hold
         if agent.current_position == 1:
