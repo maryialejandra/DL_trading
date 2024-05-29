@@ -127,10 +127,10 @@ class DQNAgent:
 
     def act(self, state):
         if np.random.rand() <= self.epsilon:
-            return np.random.choice(self.action_size)
+            return np.random.choice(self.action_size),np.zeros(self.action_size)
         state = torch.FloatTensor(state)
         act_values = self.model(state)
-        return np.argmax(act_values.detach().numpy())
+        return (np.argmax(act_values.detach().numpy()), act_values.detach().numpy())
 
     def replay(self, batch_size=32):
         if self.memory.size < batch_size:
@@ -167,11 +167,16 @@ def play_one_episode(agent, env, is_train, scaler, batch_size):
     done = False
 
     actions_record = []
+    values_record = []
+    q_values = []
+    states = []
     total_reward = 0
 
     while not done:
-        action = agent.act(state)
+        #print('agen_Act',agent.act(state))
+        action, q_value = agent.act(state)
         actions_record.append(action)
+        states.append(state)
         next_state, reward, done, info = env.step(action)
         next_state = scaler.transform([next_state])
 
@@ -184,8 +189,9 @@ def play_one_episode(agent, env, is_train, scaler, batch_size):
             agent.update_target_model()
 
         state = next_state
-
-    return info['cur_val'], actions_record
+        values_record.append(info['cur_val']) 
+        q_values.append(q_value)
+    return values_record, actions_record, q_values,states
 
 def calculate_reward(agent, next_state, action, info):
     if action == 2:  # Buy
